@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="900">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>Kona BBQ Ops — TV Dashboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
+html, body { height: 100vh; background: #0a0e13; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
+body { font-size: 14px; line-height: 1.3; }
+
+.tv-root { display: flex; flex-direction: column; height: 100vh; padding: 10px 14px; position: relative; }
+
+.tv-header { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px 8px; border-bottom: 2px solid #2c7da0; margin-bottom: 10px; flex-shrink: 0; }
+.tv-brand { display: flex; align-items: baseline; gap: 14px; }
+.tv-brand-name { color: #2c7da0; font-weight: 700; font-size: 24px; letter-spacing: 2px; }
+.tv-brand-sub { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.tv-clock-wrap { display: flex; align-items: center; gap: 12px; }
+.tv-clock { text-align: right; }
+.tv-clock-date { color: #e6edf3; font-size: 14px; font-weight: 600; }
+.tv-clock-time { color: #2c7da0; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tv-fs-btn { background: transparent; color: #6e7681; border: 1px solid #2c7da0; border-radius: 4px; padding: 5px 9px; cursor: pointer; font-size: 14px; line-height: 1; font-family: inherit; transition: color .15s, background .15s; }
+.tv-fs-btn:hover { color: #e6edf3; background: #2c7da0; }
+html:fullscreen .tv-fs-btn { display: none; }
+html:-webkit-full-screen .tv-fs-btn { display: none; }
+
+/* Page rotation */
+.tv-stage { flex: 1; position: relative; min-height: 0; }
+.page { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease-in-out; pointer-events: none; display: flex; flex-direction: column; }
+.page.active { opacity: 1; pointer-events: auto; }
+
+/* Page indicator dots */
+.page-dots { position: absolute; bottom: 12px; right: 16px; display: flex; gap: 8px; z-index: 10; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #21303d; border: 1px solid #2c7da0; transition: background .3s; }
+.dot.active-dot { background: #2c7da0; box-shadow: 0 0 8px #2c7da0; }
+
+/* Grid for Page 1 */
+.tv-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 10px; min-height: 0; }
+
+/* Page 2 (deep dive) layout */
+.tv-deep { flex: 1; display: grid; grid-template-columns: 1fr; grid-template-rows: 6fr 4fr 1.2fr; gap: 10px; min-height: 0; }
+
+.panel { background: #11161c; border: 1px solid #21303d; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.panel-header { background: linear-gradient(90deg, #2c7da0 0%, #1e5a75 100%); color: #fff; padding: 6px 12px; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.panel-num { background: rgba(255,255,255,0.2); color: #fff; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+.panel-body { padding: 8px 12px; flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+
+/* Sales + TACoS hero metric */
+.hero-metric { text-align: center; padding: 4px 0 2px; flex-shrink: 0; }
+.hero-label { color: #8b949e; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; }
+.hero-value { color: #f0f6fc; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; margin: 2px 0; }
+.hero-sub { color: #8b949e; font-size: 12px; }
+.metric-green { color: #3fb950; }
+.metric-yellow { color: #d29922; }
+.metric-red { color: #f85149; }
+.metric-unknown { color: #8b949e; }
+.mini-row { display: flex; gap: 8px; }
+.mini-metric { flex: 1; background: #0a0e13; border: 1px solid #21303d; border-radius: 5px; padding: 6px 10px; }
+.mini-label { color: #8b949e; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+.mini-value { color: #f0f6fc; font-size: 20px; font-weight: 700; margin: 2px 0; font-variant-numeric: tabular-nums; }
+.mini-trend { font-size: 10px; color: #8b949e; }
+.ytd { background: #0a0e13; border: 1px solid #21303d; border-radius: 5px; padding: 6px 10px; margin-top: auto; }
+.ytd-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+.ytd-label { color: #8b949e; font-size: 10px; letter-spacing: 1px; }
+.ytd-value { color: #2c7da0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ytd-target { color: #6e7681; font-size: 11px; }
+.ytd-bar { height: 8px; background: #21303d; border-radius: 4px; overflow: hidden; }
+.ytd-fill { height: 100%; background: linear-gradient(90deg, #2c7da0, #3fb950); }
+
+/* Campaign counts */
+.campaign-counts { display: flex; gap: 6px; margin-top: auto; }
+.cc-item { flex: 1; background: #0a0e13; border: 1px solid #21303d; border-radius: 5px; padding: 5px; text-align: center; }
+.cc-num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cc-lbl { font-size: 9px; color: #8b949e; letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+.cc-enabled .cc-num { color: #3fb950; }
+.cc-paused .cc-num { color: #f85149; }
+.cc-total .cc-num { color: #2c7da0; }
+
+/* Hero table */
+.hero-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hero-table th { color: #8b949e; font-size: 9px; text-align: left; padding: 3px 6px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #21303d; }
+.hero-table td { padding: 5px 6px; border-bottom: 1px solid #1a2128; }
+.hero-name { color: #e6edf3; font-weight: 500; }
+.hero-avail, .hero-vel, .hero-cov { text-align: right; font-variant-numeric: tabular-nums; color: #8b949e; }
+.hero-cov { color: #e6edf3; font-weight: 600; }
+.hero-table-full { font-size: 14px; }
+.hero-table-full th { font-size: 10px; padding: 4px 8px; }
+.hero-table-full td { padding: 7px 8px; }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; min-width: 22px; text-align: center; }
+.pill-red { background: #da3633; color: #fff; }
+.pill-yellow { background: #d29922; color: #0d1117; }
+.pill-green { background: #238636; color: #fff; }
+.pill-muted { background: #30363d; color: #8b949e; }
+.ad-paused { display: inline-block; background: #da3633; color: #fff; font-size: 8px; padding: 1px 3px; border-radius: 2px; margin-left: 4px; }
+.flash-critical { animation: flash 2s ease-in-out infinite; }
+@keyframes flash { 0%, 100% { background: transparent; } 50% { background: rgba(248, 81, 73, 0.2); } }
+
+/* Blue Ice countdown */
+.countdown-big { text-align: center; padding: 4px 0 6px; flex-shrink: 0; }
+.countdown-big-num { color: #f85149; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.countdown-big-lbl { color: #8b949e; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+.asin-bar { margin-bottom: 6px; }
+.asin-label { color: #e6edf3; font-weight: 600; font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; }
+.asin-meta { color: #8b949e; font-size: 10px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.asin-bar-track { height: 10px; background: #21303d; border-radius: 5px; overflow: hidden; }
+.asin-bar-fill { height: 100%; }
+.bar-ok { background: linear-gradient(90deg, #238636, #3fb950); }
+.bar-warn { background: linear-gradient(90deg, #d29922, #e3a833); }
+.bar-critical { background: linear-gradient(90deg, #da3633, #f85149); }
+
+/* Panel 5 — Next Milestone */
+.milestone-head { display: flex; align-items: center; gap: 16px; padding: 4px 0 8px; flex-shrink: 0; }
+.milestone-days { font-size: 54px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; color: #2c7da0; }
+.milestone-urgent .milestone-days { color: #f85149; }
+.milestone-soon .milestone-days { color: #d29922; }
+.milestone-distant .milestone-days { color: #2c7da0; }
+.milestone-meta { flex: 1; }
+.milestone-event { font-size: 22px; font-weight: 700; color: #f0f6fc; }
+.milestone-date { font-size: 11px; color: #8b949e; letter-spacing: 1px; text-transform: uppercase; }
+.milestone-prep-label { font-size: 9px; color: #2c7da0; font-weight: 700; letter-spacing: 1.5px; margin-top: 2px; }
+.milestone-prep { list-style: none; padding: 0; margin: 0; }
+.prep-item { color: #e6edf3; font-size: 12px; padding: 3px 0 3px 14px; border-bottom: 1px solid #1a2128; position: relative; }
+.prep-item::before { content: "▸"; position: absolute; left: 0; color: #2c7da0; }
+
+/* Panel 6 — Action Needed */
+.action-legend { display: flex; gap: 10px; align-items: center; font-size: 9px; color: #8b949e; letter-spacing: 1px; padding-bottom: 4px; border-bottom: 1px solid #21303d; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #21303d; }
+.action-list { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: hidden; }
+.action-row { display: grid; grid-template-columns: 72px 1fr auto; gap: 8px; align-items: baseline; padding: 4px 6px; border-radius: 4px; font-size: 12px; border-left: 3px solid transparent; }
+.action-owner { font-weight: 700; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.action-task { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-due { font-size: 10px; color: #8b949e; font-variant-numeric: tabular-nums; }
+.action-white { color: #e6edf3; border-left-color: #e6edf3; background: rgba(230, 237, 243, 0.03); }
+.action-white.legend-swatch { background: #e6edf3; }
+.action-yellow { color: #d29922; border-left-color: #d29922; background: rgba(210, 153, 34, 0.08); }
+.action-yellow.legend-swatch { background: #d29922; }
+.action-red { color: #f85149; border-left-color: #f85149; background: rgba(248, 81, 73, 0.08); }
+.action-red.legend-swatch { background: #f85149; }
+.action-done { color: #6e7681; border-left-color: #3fb950; text-decoration: line-through; }
+.action-done.legend-swatch { background: #3fb950; text-decoration: none; }
+.action-done .action-task { text-decoration: line-through; }
+
+/* Calendar strip (Page 2) */
+.cal-strip { display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px; height: 100%; }
+.cal-day { background: #0a0e13; border: 1px solid #21303d; border-radius: 4px; padding: 4px 3px; font-size: 9px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; min-width: 0; }
+.cal-today { border-color: #2c7da0; border-width: 2px; background: rgba(44, 125, 160, 0.1); }
+.cal-has-event { border-color: #3fb950; }
+.cal-milestone { border-color: #d29922; background: rgba(210, 153, 34, 0.1); }
+.cal-date { color: #e6edf3; font-weight: 700; font-size: 10px; font-variant-numeric: tabular-nums; }
+.cal-dow { color: #6e7681; font-size: 8px; letter-spacing: 1px; text-transform: uppercase; }
+.cal-event { color: #e6edf3; font-size: 8px; padding: 1px 2px; border-radius: 2px; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; line-height: 1.15; }
+.cal-event-done { color: #6e7681; text-decoration: line-through; }
+.cal-event-open { color: #3fb950; background: rgba(63, 185, 80, 0.1); }
+.cal-event-milestone { color: #d29922; background: rgba(210, 153, 34, 0.15); font-weight: 700; }
+
+/* Wins ticker */
+.ticker-body { padding: 0 !important; overflow: hidden !important; position: relative; }
+.ticker-track { display: inline-flex; gap: 48px; white-space: nowrap; padding: 8px 16px; animation: ticker 70s linear infinite; will-change: transform; }
+.ticker-item { display: inline-flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.ticker-date { color: #8b949e; font-size: 11px; font-variant-numeric: tabular-nums; }
+.ticker-text { color: #e6edf3; }
+.ticker-value { color: #3fb950; font-weight: 700; }
+@keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.deep-ticker-panel .panel-body { flex-direction: row; align-items: center; }
+
+/* Page 3 — Motivation */
+.motivation-wrap { flex: 1; display: grid; grid-template-rows: 1.5fr 1fr 1fr 0.5fr; gap: 16px; padding: 20px 40px; }
+.mot-progress { background: #11161c; border: 1px solid #21303d; border-radius: 12px; padding: 20px 32px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.mot-progress-num { color: #f0f6fc; font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; text-align: center; }
+.mot-progress-sep { color: #6e7681; font-weight: 400; }
+.mot-progress-pct { color: #2c7da0; font-size: 22px; font-weight: 600; text-align: center; letter-spacing: 2px; }
+.mot-bar { height: 24px; background: #21303d; border-radius: 12px; overflow: hidden; }
+.mot-bar-fill { height: 100%; background: linear-gradient(90deg, #2c7da0, #3fb950); box-shadow: 0 0 20px rgba(63, 185, 80, 0.4); }
+.mot-win { background: #11161c; border: 1px solid #3fb950; border-radius: 12px; padding: 16px 28px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.mot-label { color: #3fb950; font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.mot-win-title { color: #f0f6fc; font-size: 28px; font-weight: 700; }
+.mot-win-detail { color: #8b949e; font-size: 14px; }
+.mot-quote { background: #11161c; border: 1px solid #21303d; border-radius: 12px; padding: 20px 28px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.mot-quote-text { color: #e6edf3; font-size: 22px; font-style: italic; line-height: 1.4; }
+.mot-quote-attr { color: #8b949e; font-size: 12px; text-align: right; }
+.mot-brand { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 8px; }
+.mot-logo { color: #2c7da0; font-weight: 700; font-size: 36px; letter-spacing: 6px; }
+.mot-tagline { color: #8b949e; font-size: 18px; font-style: italic; letter-spacing: 2px; }
+
+.muted { color: #8b949e; }
+</style>
+</head>
+<body>
+<div class="tv-root">
+  <header class="tv-header">
+    <div class="tv-brand">
+      <span class="tv-brand-name">KONA BBQ</span>
+      <span class="tv-brand-sub">Operations Dashboard · Live</span>
+    </div>
+    <div class="tv-clock-wrap">
+      <div class="tv-clock">
+        <div class="tv-clock-date" id="clock-date">—</div>
+        <div class="tv-clock-time" id="clock-time">—</div>
+      </div>
+      <button class="tv-fs-btn" id="fs-btn" title="Toggle fullscreen" aria-label="Toggle fullscreen">⛶</button>
+    </div>
+  </header>
+  <div class="tv-stage">
+    <div class="page active" id="page-1">
+      <div class="tv-grid">
+        
+<section class="panel p1">
+  <div class="panel-header"><span class="panel-num">1</span>SALES SCOREBOARD</div>
+  <div class="panel-body">
+    <div class="hero-metric">
+      <div class="hero-label">YESTERDAY · 2026-04-23</div>
+      <div class="hero-value">$9,718</div>
+      <div class="hero-sub">400 units · today so far $3,914 (158 u)</div>
+    </div>
+    <div class="mini-row">
+      <div class="mini-metric">
+        <div class="mini-label">THIS WEEK TARGET</div>
+        <div class="mini-value">$58,405</div>
+        <div class="mini-trend">2025 same wk $89,256 · stretch $67,166</div>
+      </div>
+      <div class="mini-metric">
+        <div class="mini-label">30-DAY ACTUAL</div>
+        <div class="mini-value">$252,796</div>
+        <div class="mini-trend">$8,427/day avg</div>
+      </div>
+    </div>
+    <div class="ytd">
+      <div class="ytd-row">
+        <span class="ytd-label">YTD 2026</span>
+        <span class="ytd-value">$720,735</span>
+        <span class="ytd-target">/ $3,456,551 (20.9%) · stretch $3,750,083</span>
+      </div>
+      <div class="ytd-bar"><div class="ytd-fill" style="width:20.9%"></div></div>
+    </div>
+  </div>
+</section>
+        
+<section class="panel p2">
+  <div class="panel-header"><span class="panel-num">2</span>TACoS + AD HEALTH</div>
+  <div class="panel-body">
+    <div class="hero-metric">
+      <div class="hero-label">TACoS · 30d · account-wide</div>
+      <div class="hero-value metric-green">14.0%</div>
+      <div class="hero-sub">ACoS 27.4% · CPC $1.08</div>
+    </div>
+    <div class="mini-row">
+      <div class="mini-metric">
+        <div class="mini-label">AD SPEND 30d</div>
+        <div class="mini-value">$35,384</div>
+      </div>
+      <div class="mini-metric">
+        <div class="mini-label">AD SALES 30d</div>
+        <div class="mini-value">$129,017</div>
+      </div>
+    </div>
+    <div class="campaign-counts">
+      <div class="cc-item cc-enabled"><div class="cc-num">176</div><div class="cc-lbl">ENABLED</div></div>
+      <div class="cc-item cc-paused"><div class="cc-num">1363</div><div class="cc-lbl">PAUSED</div></div>
+      <div class="cc-item cc-total"><div class="cc-num">1539</div><div class="cc-lbl">TOTAL</div></div>
+    </div>
+  </div>
+</section>
+        
+<section class="panel p3">
+  <div class="panel-header"><span class="panel-num">3</span>HERO VELOCITY · top 8</div>
+  <div class="panel-body">
+    <table class="hero-table">
+      <thead><tr><th>ASIN</th><th>Avail</th><th>v/d</th><th>Cover</th><th></th></tr></thead>
+      <tbody><tr class=" flash-critical"><td class="hero-name">Blue Ice 2pk <span class="ad-paused">P</span></td><td class="hero-avail">31</td><td class="hero-vel">17.7</td><td class="hero-cov">2d</td><td><span class="pill pill-red">R</span></td></tr><tr class=""><td class="hero-name">Safe/Clean Brush</td><td class="hero-avail">1,177</td><td class="hero-vel">66.2</td><td class="hero-cov">18d</td><td><span class="pill pill-yellow">Y</span></td></tr><tr class=""><td class="hero-name">Tongs</td><td class="hero-avail">264</td><td class="hero-vel">9.9</td><td class="hero-cov">27d</td><td><span class="pill pill-yellow">Y</span></td></tr><tr class=""><td class="hero-name">Ninja Variety 8</td><td class="hero-avail">1,728</td><td class="hero-vel">62.8</td><td class="hero-cov">28d</td><td><span class="pill pill-yellow">Y</span></td></tr><tr class=""><td class="hero-name">GE Indoor Pellets</td><td class="hero-avail">140</td><td class="hero-vel">3.8</td><td class="hero-cov">37d</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">Blue/Ice Lunch 4pk</td><td class="hero-avail">260</td><td class="hero-vel">5.7</td><td class="hero-cov">46d</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">XXL Ice 4pk</td><td class="hero-avail">961</td><td class="hero-vel">17.2</td><td class="hero-cov">56d</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">Pizza Blend</td><td class="hero-avail">1,496</td><td class="hero-vel">26.1</td><td class="hero-cov">57d</td><td><span class="pill pill-green">G</span></td></tr></tbody>
+    </table>
+  </div>
+</section>
+        
+<section class="panel p4">
+  <div class="panel-header"><span class="panel-num">4</span>BLUE ICE DARK WINDOW</div>
+  <div class="panel-body">
+    <div class="countdown-big">
+      <div class="countdown-big-num">26–36</div>
+      <div class="countdown-big-lbl">DAYS UNTIL CHINA RESTOCK · 2026-05-20 → 2026-05-30</div>
+    </div>
+    
+        <div class="asin-bar">
+          <div class="asin-label">B09SNQKKDM 2pk <span class="asin-meta">31/1,074 · 1.3d · in 4,424</span></div>
+          <div class="asin-bar-track"><div class="asin-bar-fill bar-warn" style="width:2.9%"></div></div>
+        </div>
+    
+        <div class="asin-bar">
+          <div class="asin-label">B09SNS2F8T 4pk <span class="asin-meta">0/408 · OOS · in 2,292</span></div>
+          <div class="asin-bar-track"><div class="asin-bar-fill bar-critical" style="width:0.0%"></div></div>
+        </div>
+  </div>
+</section>
+        
+<section class="panel p5">
+  <div class="panel-header"><span class="panel-num">5</span>NEXT MILESTONE</div>
+  <div class="panel-body">
+    <div class="milestone-head milestone-distant">
+      <div class="milestone-days">32</div>
+      <div class="milestone-meta">
+        <div class="milestone-event">Memorial Day</div>
+        <div class="milestone-date">2026-05-26 · days until</div>
+      </div>
+    </div>
+    <div class="milestone-prep-label">PREP REMAINING</div>
+    <ul class="milestone-prep"><li class="prep-item">Smoke Pod A/B/C scenario decision</li><li class="prep-item">4 Virtual Bundles approval + build</li><li class="prep-item">Discontinued SKU momentum tests approval</li></ul>
+  </div>
+</section>
+        
+<section class="panel p6">
+  <div class="panel-header"><span class="panel-num">6</span>ACTION NEEDED</div>
+  <div class="panel-body">
+    <div class="action-legend">
+      <span class="legend-swatch action-white"></span>future
+      <span class="legend-swatch action-yellow"></span>&le;3d
+      <span class="legend-swatch action-red"></span>overdue
+      <span class="legend-swatch action-done"></span>done
+    </div>
+    <div class="action-list"><div class="action-row action-white"><span class="action-owner">Koa</span><span class="action-task">Approve 5 discontinued SKU momentum tests ($200 budget)</span><span class="action-due">2026-04-30 · 6d</span></div><div class="action-row action-white"><span class="action-owner">Jamie</span><span class="action-task">Pull 3 E5 review quotes from Seller Central</span><span class="action-due">2026-05-07 · 13d</span></div><div class="action-row action-white"><span class="action-owner">Koa</span><span class="action-task">Approve 4 Father&#x27;s Day Virtual Bundles before Jamie builds</span><span class="action-due">2026-05-15 · 21d</span></div><div class="action-row action-white"><span class="action-owner">Jamie</span><span class="action-task">Fix Yahoo email deliverability (SPF done, DKIM pending)</span><span class="action-due">no date</span></div><div class="action-row action-done"><span class="action-owner">Jamie</span><span class="action-task">Ice-pack page body_html fix verified via View Page Source (insert-card-signup only in // comment, not in tags array). Fix propagated; no customer cross-enrollment</span><span class="action-due">DONE</span></div></div>
+  </div>
+</section>
+      </div>
+    </div>
+    <div class="page" id="page-2">
+      <div class="tv-deep">
+        
+<section class="panel deep-panel">
+  <div class="panel-header"><span class="panel-num">D1</span>HERO ASIN VELOCITY · full (13)</div>
+  <div class="panel-body">
+    <table class="hero-table hero-table-full">
+      <thead><tr><th>ASIN</th><th>Avail</th><th>v7/d</th><th>v30/d</th><th>Cover</th><th>Inbound</th><th></th></tr></thead>
+      <tbody><tr class=" flash-critical"><td class="hero-name">Blue Ice 2pk <span class="ad-paused">P</span></td><td class="hero-avail">31</td><td class="hero-vel">23.9</td><td class="hero-vel">17.7</td><td class="hero-cov">2d</td><td class="hero-avail">4,424</td><td><span class="pill pill-red">R</span></td></tr><tr class=""><td class="hero-name">Safe/Clean Brush</td><td class="hero-avail">1,177</td><td class="hero-vel">70.7</td><td class="hero-vel">66.2</td><td class="hero-cov">18d</td><td class="hero-avail">8,080</td><td><span class="pill pill-yellow">Y</span></td></tr><tr class=""><td class="hero-name">Tongs</td><td class="hero-avail">264</td><td class="hero-vel">8.7</td><td class="hero-vel">9.9</td><td class="hero-cov">27d</td><td class="hero-avail">1,500</td><td><span class="pill pill-yellow">Y</span></td></tr><tr class=""><td class="hero-name">Ninja Variety 8</td><td class="hero-avail">1,728</td><td class="hero-vel">52.7</td><td class="hero-vel">62.8</td><td class="hero-cov">28d</td><td class="hero-avail">2,970</td><td><span class="pill pill-yellow">Y</span></td></tr><tr class=""><td class="hero-name">GE Indoor Pellets</td><td class="hero-avail">140</td><td class="hero-vel">3.9</td><td class="hero-vel">3.8</td><td class="hero-cov">37d</td><td class="hero-avail">—</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">Blue/Ice Lunch 4pk</td><td class="hero-avail">260</td><td class="hero-vel">3.0</td><td class="hero-vel">5.7</td><td class="hero-cov">46d</td><td class="hero-avail">752</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">XXL Ice 4pk</td><td class="hero-avail">961</td><td class="hero-vel">25.3</td><td class="hero-vel">17.2</td><td class="hero-cov">56d</td><td class="hero-avail">4,002</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">Pizza Blend</td><td class="hero-avail">1,496</td><td class="hero-vel">23.0</td><td class="hero-vel">26.1</td><td class="hero-cov">57d</td><td class="hero-avail">1,320</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">Smoke Pods</td><td class="hero-avail">665</td><td class="hero-vel">11.6</td><td class="hero-vel">9.2</td><td class="hero-cov">72d</td><td class="hero-avail">432</td><td><span class="pill pill-green">G</span></td></tr><tr class=""><td class="hero-name">XXL Ice 2pk</td><td class="hero-avail">1,513</td><td class="hero-vel">31.9</td><td class="hero-vel">10.9</td><td class="hero-cov">139d</td><td class="hero-avail">8,004</td><td><span class="pill pill-green">G</span></td></tr><tr class=" flash-critical"><td class="hero-name">Blue Ice 4pk <span class="ad-paused">P</span></td><td class="hero-avail">0</td><td class="hero-vel">9.4</td><td class="hero-vel">7.8</td><td class="hero-cov">0d</td><td class="hero-avail">2,292</td><td><span class="pill pill-red">R</span></td></tr><tr class=" flash-critical"><td class="hero-name">360 Brush</td><td class="hero-avail">0</td><td class="hero-vel">0.4</td><td class="hero-vel">7.8</td><td class="hero-cov">0d</td><td class="hero-avail">1,000</td><td><span class="pill pill-red">R</span></td></tr><tr class=" flash-critical"><td class="hero-name">Lunch Ice (TSA)</td><td class="hero-avail">0</td><td class="hero-vel">0.3</td><td class="hero-vel">3.9</td><td class="hero-cov">0d</td><td class="hero-avail">1,980</td><td><span class="pill pill-red">R</span></td></tr></tbody>
+    </table>
+  </div>
+</section>
+        
+<section class="panel deep-panel">
+  <div class="panel-header"><span class="panel-num">D2</span>NEXT 30 DAYS · calendar</div>
+  <div class="panel-body">
+    <div class="cal-strip"><div class="cal-day cal-today cal-has-event"><div class="cal-date">Apr 24</div><div class="cal-dow">Fri</div><div class="cal-event cal-event-done">Ice Packs ATC review</div></div><div class="cal-day"><div class="cal-date">Apr 25</div><div class="cal-dow">Sat</div></div><div class="cal-day"><div class="cal-date">Apr 26</div><div class="cal-dow">Sun</div></div><div class="cal-day cal-has-event"><div class="cal-date">Apr 27</div><div class="cal-dow">Mon</div><div class="cal-event cal-event-open">Wood pellets unpause @ $0.42</div></div><div class="cal-day cal-has-event"><div class="cal-date">Apr 28</div><div class="cal-dow">Tue</div><div class="cal-event cal-event-open">Ninja kwid review / Ice Packs cluster cuts</div></div><div class="cal-day"><div class="cal-date">Apr 29</div><div class="cal-dow">Wed</div></div><div class="cal-day cal-has-event"><div class="cal-date">Apr 30</div><div class="cal-dow">Thu</div><div class="cal-event cal-event-open">BROAD $4→$1.05 7d check</div></div><div class="cal-day cal-has-event"><div class="cal-date">May 1</div><div class="cal-dow">Fri</div><div class="cal-event cal-event-open">ATC 14d check</div></div><div class="cal-day"><div class="cal-date">May 2</div><div class="cal-dow">Sat</div></div><div class="cal-day"><div class="cal-date">May 3</div><div class="cal-dow">Sun</div></div><div class="cal-day"><div class="cal-date">May 4</div><div class="cal-dow">Mon</div></div><div class="cal-day"><div class="cal-date">May 5</div><div class="cal-dow">Tue</div></div><div class="cal-day"><div class="cal-date">May 6</div><div class="cal-dow">Wed</div></div><div class="cal-day"><div class="cal-date">May 7</div><div class="cal-dow">Thu</div></div><div class="cal-day"><div class="cal-date">May 8</div><div class="cal-dow">Fri</div></div><div class="cal-day cal-has-event"><div class="cal-date">May 9</div><div class="cal-dow">Sat</div><div class="cal-event cal-event-done">Lightning Deal deadline</div></div><div class="cal-day"><div class="cal-date">May 10</div><div class="cal-dow">Sun</div></div><div class="cal-day"><div class="cal-date">May 11</div><div class="cal-dow">Mon</div></div><div class="cal-day"><div class="cal-date">May 12</div><div class="cal-dow">Tue</div></div><div class="cal-day"><div class="cal-date">May 13</div><div class="cal-dow">Wed</div></div><div class="cal-day"><div class="cal-date">May 14</div><div class="cal-dow">Thu</div></div><div class="cal-day"><div class="cal-date">May 15</div><div class="cal-dow">Fri</div></div><div class="cal-day"><div class="cal-date">May 16</div><div class="cal-dow">Sat</div></div><div class="cal-day"><div class="cal-date">May 17</div><div class="cal-dow">Sun</div></div><div class="cal-day"><div class="cal-date">May 18</div><div class="cal-dow">Mon</div></div><div class="cal-day"><div class="cal-date">May 19</div><div class="cal-dow">Tue</div></div><div class="cal-day cal-has-event"><div class="cal-date">May 20</div><div class="cal-dow">Wed</div><div class="cal-event cal-event-open">China restock window open</div></div><div class="cal-day"><div class="cal-date">May 21</div><div class="cal-dow">Thu</div></div><div class="cal-day"><div class="cal-date">May 22</div><div class="cal-dow">Fri</div></div><div class="cal-day cal-has-event"><div class="cal-date">May 23</div><div class="cal-dow">Sat</div><div class="cal-event cal-event-open">B09SQGRCNR Day-30 velocity reassess</div></div></div>
+  </div>
+</section>
+        
+<section class="panel deep-panel deep-ticker-panel">
+  <div class="panel-header"><span class="panel-num">D3</span>RECENT WINS</div>
+  <div class="panel-body ticker-body">
+    <div class="ticker-track"><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Ice-pack page body_html fix VERIFIED live (Jamie View Source) — insert-card-signup removed from tags array</span> <span class="ticker-value">closed</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Safe/Clean Grill Brush instructions page LIVE — /pages/how-to-safe-clean-grill-brush</span> <span class="ticker-value">page live</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Pellet ATC Ice Packs 7d ACoS 15.37% (Apr 17-23) — HOLD confirmed, Tier 2 7d monitor passed</span> <span class="ticker-value">15.37%</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">AWeber cross-contamination audit — 0 customer subs with both ice-pack + insert-card tags (2 internal tests only)</span> <span class="ticker-value">0 impact</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Scratch-off fulfillment hard-blocks unknown codes — wrong-product shipment path closed</span> <span class="ticker-value">P0 fix</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Ice-pack page tags fixed — &#x27;insert-card-signup&#x27; removed, pellet drip cross-enrollment blocked</span> <span class="ticker-value">P0 fix</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Ice-pack page body_html fix VERIFIED live (Jamie View Source) — insert-card-signup removed from tags array</span> <span class="ticker-value">closed</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Safe/Clean Grill Brush instructions page LIVE — /pages/how-to-safe-clean-grill-brush</span> <span class="ticker-value">page live</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Pellet ATC Ice Packs 7d ACoS 15.37% (Apr 17-23) — HOLD confirmed, Tier 2 7d monitor passed</span> <span class="ticker-value">15.37%</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">AWeber cross-contamination audit — 0 customer subs with both ice-pack + insert-card tags (2 internal tests only)</span> <span class="ticker-value">0 impact</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Scratch-off fulfillment hard-blocks unknown codes — wrong-product shipment path closed</span> <span class="ticker-value">P0 fix</span></span><span class="ticker-item"><span class="ticker-date">04-24</span> <span class="ticker-text">Ice-pack page tags fixed — &#x27;insert-card-signup&#x27; removed, pellet drip cross-enrollment blocked</span> <span class="ticker-value">P0 fix</span></span></div>
+  </div>
+</section>
+      </div>
+    </div>
+    <div class="page" id="page-3">
+      
+<div class="motivation-wrap">
+  <div class="mot-progress">
+    <div class="mot-progress-num">$721K <span class="mot-progress-sep">of</span> $3,457K target</div>
+    <div class="mot-progress-pct">21% there · YTD 2026</div>
+    <div class="mot-bar"><div class="mot-bar-fill" style="width:20.9%"></div></div>
+  </div>
+  <div class="mot-win">
+    <div class="mot-label">THIS WEEK'S WIN</div>
+    <div class="mot-win-title">Ice Pack email sequence LIVE</div>
+    <div class="mot-win-detail">9 emails loaded in AWeber, reaching customers within hours of purchase. SPF + DKIM aligned; webhook v3 verified end-to-end.</div>
+  </div>
+  <div class="mot-quote">
+    <div class="mot-quote-text">&ldquo;Blue Ice 2-pack + a medium soft cooler = all-day cold at Disney.&rdquo;</div>
+    <div class="mot-quote-attr">— Frank K. (placeholder — swap with verified-purchase review)</div>
+  </div>
+  <div class="mot-brand">
+    <span class="mot-logo">KONA</span>
+    <span class="mot-tagline">Stay cold.</span>
+  </div>
+</div>
+    </div>
+  </div>
+  <div class="page-dots">
+    <div class="dot active-dot" data-idx="0"></div>
+    <div class="dot" data-idx="1"></div>
+    <div class="dot" data-idx="2"></div>
+  </div>
+</div>
+<script>
+// Clock
+function updateClock() {
+  var now = new Date();
+  var dateOpts = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+  var timeOpts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+  document.getElementById('clock-date').textContent = now.toLocaleDateString('en-US', dateOpts);
+  document.getElementById('clock-time').textContent = now.toLocaleTimeString('en-US', timeOpts);
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Fullscreen
+document.getElementById('fs-btn').addEventListener('click', function () {
+  var el = document.documentElement;
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    (el.requestFullscreen || el.webkitRequestFullscreen).call(el).catch(function () {});
+  }
+});
+
+// Page rotation
+var PAGES = [
+  { id: 'page-1', duration: 45000 },
+  { id: 'page-2', duration: 15000 },
+  { id: 'page-3', duration: 10000 }
+];
+var idx = 0;
+function showPage(i) {
+  PAGES.forEach(function (p, n) {
+    var el = document.getElementById(p.id);
+    if (!el) return;
+    if (n === i) el.classList.add('active');
+    else el.classList.remove('active');
+  });
+  var dots = document.querySelectorAll('.dot');
+  dots.forEach(function (d, n) {
+    if (n === i) d.classList.add('active-dot');
+    else d.classList.remove('active-dot');
+  });
+}
+function cycle() {
+  showPage(idx);
+  var dur = PAGES[idx].duration;
+  idx = (idx + 1) % PAGES.length;
+  setTimeout(cycle, dur);
+}
+cycle();
+</script>
+</body>
+</html>
